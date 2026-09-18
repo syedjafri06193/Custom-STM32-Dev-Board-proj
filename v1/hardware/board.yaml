@@ -1,0 +1,312 @@
+# The board, as data.
+#
+# Everything a design review would ask about is written down here rather than
+# living only in a schematic that a script cannot read.  hardware/rules/ then
+# checks it on every commit.
+#
+# The point is not that YAML replaces a schematic.  It is that section 11's
+# bring-up rules, section 3's barrier rules and section 6's PD invariants are
+# claims about the board, and a claim nobody can check is a claim that quietly
+# stops being true halfway through layout.  M3 in the milestone ladder calls
+# schematic review "the highest-ROI milestone in the project"; this is the
+# part of that review that does not need a human.
+
+meta:
+  name: "STM32G474 Industrial Sensor Logger"
+  revision: "A"
+  isolation_class: functional
+  warning: >
+    Functional isolation only. NOT rated for mains-referenced sensors.
+    The barrier jumper defeats isolation and is for bench use only.
+
+# --------------------------------------------------------------- isolation
+
+isolation:
+  # Section 3: functional isolation for 24 V industrial sensors.  The thing
+  # being solved is ground-potential difference and common-mode rejection,
+  # not a mains fault, and 8 mm of empty FR4 buys nothing here.
+  class: functional
+  creepage_mm: 2.5
+  clearance_mm: 2.5
+  routed_slot: false
+  # Wide-body footprints from the start: they accept narrow parts, but a
+  # narrow footprint will not accept a wide-body reinforced part, so this is
+  # what makes a reinforced v2 a part swap rather than a re-layout.
+  isolator_footprint: wide_body_soic
+  y_capacitor:
+    present: true
+    value_pf: 470
+    dielectric: C0G
+    placement: "between the two ground pours, adjacent to the DC-DC transformer"
+
+# Every net that crosses the barrier must appear here, and every one of them
+# must go through an isolating part.  A net that crosses without one is a
+# short across the barrier, which is the failure that makes the whole
+# isolation story fiction.
+barrier_crossings:
+  - net: SPI_SCK
+    direction: to_isolated
+    via: ADuM4154
+  - net: SPI_MOSI
+    direction: to_isolated
+    via: ADuM4154
+  - net: SPI_CS
+    direction: to_isolated
+    via: ADuM4154
+  - net: SPI_MISO
+    direction: from_isolated
+    via: ADuM4154
+  - net: ADC_DRDY
+    direction: from_isolated
+    via: ADuM4154
+  - net: ISO_PWR
+    direction: to_isolated
+    via: isolated_dcdc
+  - net: Y_CAP
+    direction: bidirectional
+    via: y_capacitor
+
+# ------------------------------------------------------------------- power
+
+power:
+  input:
+    source: usb_c_vbus
+    min_mv: 5000
+    nominal_mv: 20000
+    # SPR ceiling plus margin.  Every part on the input side is rated at or
+    # above input_rating_v, which is what makes "never request EPR" a design
+    # rule rather than a hope.
+    max_mv: 20000
+    input_rating_v: 40
+    tvs_standoff_v: 24
+
+  precontract_capacitance_uf: 8.2   # Type-C bounds this at ~10 uF
+  bulk_capacitance_uf: 470          # switched in only after a contract
+  bulk_switch: "NMOS, gate driven by TCPP01-M12, slew-limited"
+
+  rails:
+    - name: VBUS
+      voltage_mv: 20000
+      jumper: true
+      test_point: true
+      led: false          # VBUS is not a regulated rail; the LED is on 5V_MAIN
+      typical_ma: 100
+      peak_ma: 160
+      domain: main
+    - name: 5V_MAIN
+      voltage_mv: 5000
+      source: "buck, 40 V rated"
+      jumper: true
+      test_point: true
+      led: true
+      typical_ma: 180
+      peak_ma: 300
+      domain: main
+    - name: 3V3_D
+      voltage_mv: 3300
+      source: "LDO, digital"
+      jumper: true
+      test_point: true
+      led: true
+      typical_ma: 75
+      peak_ma: 155
+      domain: main
+    - name: 3V3_A
+      voltage_mv: 3300
+      source: "LDO, analog, separate part"
+      jumper: true
+      test_point: true
+      led: true
+      typical_ma: 10
+      peak_ma: 15
+      domain: main
+    - name: 5V_ISO
+      voltage_mv: 5000
+      source: "isolated DC-DC module, 1 W"
+      jumper: true
+      test_point: true
+      led: true
+      typical_ma: 15
+      peak_ma: 25
+      domain: isolated
+    - name: 3V3_ISO
+      voltage_mv: 3300
+      source: "LDO, post-regulating the isolated DC-DC"
+      jumper: true
+      test_point: true
+      led: true
+      typical_ma: 5
+      peak_ma: 10
+      domain: isolated
+
+  # Section 5.3.  Separate LDOs, not a ferrite bead on a shared rail.
+  analog_digital_separation:
+    method: separate_ldos
+    star_point: "MCU ground"
+  vdda_filter: "ferrite + 1 uF + 100 nF"
+
+  loop_supply:
+    # Section 5.2: the board itself needs under 2 W, so PD only earns its
+    # place if it is powering something.  This is that something.
+    present: true
+    channels: 4
+    voltage_mv: 24000
+    current_per_channel_ma: 20
+
+# --------------------------------------------------------------------- MCU
+
+mcu:
+  part: STM32G474RET6
+  package: LQFP64
+  flash_kb: 512
+  ram_kb: 128
+  sysclk_hz: 170000000
+  # Section 7.2, and can_timing.c turns it into a test rather than a claim.
+  oscillator:
+    type: crystal
+    frequency_hz: 16000000
+    tolerance_ppm: 30
+    load_caps_note: "CL = 2 * (C_load - C_stray); stray 3-5 pF for this layout"
+  peripherals_used: [UCPD1, FDCAN1, SPI1, USART2, ADC1]
+
+# ----------------------------------------------------------- USB-C and PD
+
+usb_c:
+  receptacle: "16-pin, through-hole mounting tabs"
+  # Section 6.2: the one part that solves dead-battery Rd and CC overvoltage
+  # at the same time.  Without it the first plug-in can brick the board.
+  cc_protection: TCPP01-M12
+  dead_battery_rd: external_tcpp01
+  cc_overvoltage_v: 22
+  pd:
+    role: sink
+    spr_only: true
+    epr_requested: false
+    max_request_mv: 20000
+    fallback_mv: 5000       # section 6.5: 5 V is always acceptable
+  data:
+    dp_dm_routed: true
+    controlled_impedance: false   # section 9.2: full-speed does not need it
+    series_resistors_ohm: 22
+
+# ------------------------------------------------------------------- CAN
+
+can:
+  controller: FDCAN1
+  transceiver: TCAN1042
+  transceiver_loop_delay_ns: 110
+  isolated: false
+  alternate_footprint: ISO1042   # section 7.1: lay out both, populate one
+  termination:
+    type: split
+    resistors_ohm: [60, 60]
+    midpoint_cap_nf: 4.7
+    jumper: true
+  protection: "TVS array across CANH/CANL at the connector"
+  differential_pair: true
+  nominal_bitrate: 500000
+  data_bitrate: 2000000
+
+# ------------------------------------------------- isolated analog front end
+
+afe:
+  adc: ADS1220
+  resolution_bits: 24
+  vref_mv: 2048
+  isolator:
+    part: ADuM4154
+    forward_channels: 3     # SCK, MOSI, CS
+    reverse_channels: 2     # MISO, DRDY
+  input_type: 4_20ma
+  alternate_input: 0_10v_jumper_selectable
+  shunt:
+    resistance_ohm: 100
+    tolerance_ppm: 1000     # 0.1%
+    tempco_ppm_per_c: 25
+    package: "0805"
+    dissipation_mw_at_20ma: 40
+  channels: 4
+  protection:
+    ptc: true
+    tvs: true
+    series_resistor_ohm: 1000
+    # Section 10: sized for a continuous fault, not an 8/20 us surge.
+    # Someone will leave 24 V on a 0-10 V input for an hour.
+    continuous_fault_v: 24
+  isolated_supply:
+    type: module
+    power_w: 1
+    post_regulated: true    # section 8.3: LDO after the converter, always
+  # Section 8.4.  Written down as a target so the measured number in
+  # docs/characterization.md has something to be compared against.
+  expected_noise_free_bits:
+    bench_power: 19.0
+    isolated_dcdc: 17.5
+
+# ------------------------------------------------------- design for bring-up
+
+bring_up:
+  swd_header: "2.54 mm, 10-pin"
+  uart_broken_out: true
+  boot0_jumper: true
+  # Section 11.1.  Clearly marked, because it is the one jumper that makes
+  # the isolation claim on the silkscreen untrue while it is fitted.
+  barrier_power_jumper:
+    present: true
+    silkscreen: "DEFEATS ISOLATION -- BENCH USE ONLY"
+  spare_gpio_header: true
+  leds:
+    - {name: LED_PWR_5V, rail: 5V_MAIN}
+    - {name: LED_PWR_3V3D, rail: 3V3_D}
+    - {name: LED_PWR_3V3A, rail: 3V3_A}
+    - {name: LED_PWR_5VISO, rail: 5V_ISO}
+    - {name: LED_PWR_3V3ISO, rail: 3V3_ISO}
+    - {name: LED_USER, rail: 3V3_D}
+    - {name: LED_CAN, rail: 3V3_D}
+    - {name: LED_FAULT, rail: 3V3_D}
+
+  # Section 11.2's minimum set, enumerated.  "A test point you didn't add is
+  # a bodge wire you will add", and bodge wires on a 0.5 mm LQFP are misery.
+  test_points:
+    - VBUS
+    - 5V_MAIN
+    - 3V3_D
+    - 3V3_A
+    - 5V_ISO
+    - 3V3_ISO
+    - CC1
+    - CC2
+    - BUCK_SW
+    - MCO
+    - CANH
+    - CANL
+    - CAN_TX
+    - CAN_RX
+    - SPI_SCK_MAIN
+    - SPI_MOSI_MAIN
+    - SPI_MISO_MAIN
+    - SPI_CS_MAIN
+    - SPI_SCK_ISO
+    - SPI_MOSI_ISO
+    - SPI_MISO_ISO
+    - SPI_CS_ISO
+    - ADC_DRDY_ISO
+    - AIN0
+    - AIN1
+    - AIN2
+    - AIN3
+    - ADC_VREF
+    - GND
+    - GND_ISO
+
+# --------------------------------------------------------------- stackup
+
+stackup:
+  layers: 4
+  thickness_mm: 1.6
+  # Section 9.1: signal / ground / power / signal.  The two inner planes
+  # adjacent to the outer signal layers is what gives every trace a return
+  # path directly underneath it.
+  order: [signal, ground, power, signal]
+  controlled_impedance: false
+  fab_stackup_confirmed: false   # section 9.1: ask the fab for their actual one

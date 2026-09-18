@@ -1,0 +1,87 @@
+# Cross build for the STM32G474RET6.
+#
+#   make -f Makefile.target          build, and print the size report
+#   make -f Makefile.target flash    via OpenOCD and an ST-Link
+#   make -f Makefile.target clean
+#
+# The same core/ sources the host tests build against are compiled here
+# unchanged.  That is the point of the split: the PD policy, the CAN bit
+# timing and the analog scaling are not "tested on the host and hoped for on
+# the target" -- they are the same object code path, exercised on both.
+
+CROSS   ?= arm-none-eabi-
+CC      := $(CROSS)gcc
+OBJCOPY := $(CROSS)objcopy
+SIZE    := $(CROSS)size
+
+BUILD := build/target
+TARGET := $(BUILD)/logger
+
+# Cortex-M4 with FPU hardware present, but built soft-float on purpose: every
+# computation in core/ is integer so that the target and the host test bench
+# produce bit-identical results.  Enabling the FPU would invite somebody to
+# use it in a scaling path and quietly break that property.
+ARCH := -mcpu=cortex-m4 -mthumb -mfloat-abi=soft
+
+CFLAGS := $(ARCH) -std=c11 -Os -g3 -ffunction-sections -fdata-sections \
+          -Wall -Wextra -Werror -Wshadow -Wundef -Wdouble-promotion \
+          -fno-common -fno-builtin-printf \
+          -Icore/inc -Itarget/inc
+
+LDFLAGS := $(ARCH) -T target/stm32g474re.ld -nostartfiles \
+           -Wl,--gc-sections -Wl,-Map=$(TARGET).map \
+           -specs=nano.specs
+
+SRCS := \
+	core/src/pd_policy.c \
+	core/src/can_timing.c \
+	core/src/ads1220.c \
+	core/src/afe.c \
+	core/src/vbus.c \
+	target/src/startup_stm32g474.c \
+	target/src/rcc.c \
+	target/src/gpio.c \
+	target/src/delay.c \
+	target/src/console.c \
+	target/src/iso_spi.c \
+	target/src/vbus_adc.c \
+	target/src/fdcan.c \
+	target/src/ucpd.c \
+	target/src/syscalls.c \
+	app/src/main.c
+
+OBJS := $(patsubst %.c,$(BUILD)/%.o,$(SRCS))
+DEPS := $(OBJS:.o=.d)
+
+.PHONY: all size flash clean
+
+all: $(TARGET).bin size
+
+$(BUILD)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+
+$(TARGET).elf: $(OBJS)
+	@mkdir -p $(dir $@)
+	$(CC) $(OBJS) $(LDFLAGS) -o $@
+
+$(TARGET).bin: $(TARGET).elf
+	$(OBJCOPY) -O binary $< $@
+
+$(TARGET).hex: $(TARGET).elf
+	$(OBJCOPY) -O ihex $< $@
+
+size: $(TARGET).elf
+	@echo
+	@$(SIZE) --format=berkeley $<
+	@echo
+	@echo "flash 512K, RAM 128K -- see the .map for what went where"
+
+flash: $(TARGET).elf
+	openocd -f interface/stlink.cfg -f target/stm32g4x.cfg \
+	        -c "program $< verify reset exit"
+
+clean:
+	rm -rf $(BUILD)
+
+-include $(DEPS)
