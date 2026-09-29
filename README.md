@@ -42,3 +42,11 @@ make report     # bench tables to have on hand before the board arrives
 | [v1](v1/) | Firmware core + drivers, machine-checked hardware design rules, characterization tools | — |
 
 Add a row per version as new iterations land.
+
+## Feedback
+
+Feedback, bug reports and ideas are welcome.
+
+- **Hardware or firmware issues:** [open an issue](https://github.com/syedjafri06193/Custom-STM32-Dev-Board-proj/issues/new) and include the board revision, how it's powered, the toolchain or IDE you used, and photos or scope captures if they help show the problem.
+- **Ideas or questions:** start a thread in [Discussions](https://github.com/syedjafri06193/Custom-STM32-Dev-Board-proj/discussions) (enable it under Settings → General → Features).
+- **Design changes:** pull requests to the schematic, layout or firmware are appreciated; please describe what you changed and whether it's been tested on real hardware.
