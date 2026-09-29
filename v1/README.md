@@ -2,7 +2,7 @@
 
 A 4-layer board with USB-C Power Delivery, CAN FD, and an isolated 24-bit
 analog front end for 4–20 mA industrial sensors — implemented from
-[`Documentation/README.md`](../Documentation/README.md).
+[`docs/design.md`](../docs/design.md).
 
 > **Functional isolation only. NOT rated for mains-referenced sensors.**
 > The barrier power jumper defeats isolation and is for bench use only.

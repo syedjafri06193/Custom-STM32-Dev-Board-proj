@@ -3,7 +3,7 @@
 Places where building this turned up something the design document did not
 say, said differently, or where a choice had to be made that it left open.
 Recorded here rather than silently absorbed, because the next person to read
-`Documentation/README.md` alongside this code should be able to see where the
+`docs/design.md` alongside this code should be able to see where the
 two diverge and why.
 
 ---
