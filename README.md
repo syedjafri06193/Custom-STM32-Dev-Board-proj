@@ -1,24 +1,26 @@
 # Custom STM32 Dev Board — Industrial Sensor Logger
 
+[![CI](https://github.com/syedjafri06193/Custom-STM32-Dev-Board-proj/actions/workflows/ci.yml/badge.svg)](https://github.com/syedjafri06193/Custom-STM32-Dev-Board-proj/actions/workflows/ci.yml)
+
 4-layer STM32G474 board with USB-C Power Delivery, CAN FD, and an isolated
 24-bit analog front end for 4–20 mA industrial sensor logging.
 
 > **Functional isolation only. Not rated for mains-referenced sensors.**
-> See [`docs/design.md`](docs/design.md) for the full rationale and limits.
+> See [`1—Documentation/design.md`](1—Documentation/design.md) for the full rationale and limits.
 
 ## Repository layout
 
 ```
 .
 ├── README.md          ← you are here
-├── docs/
+├── 1—Documentation/   ← all documentation (index in its README)
 │   ├── design.md      ← full design guide (the spec code comments cite)
-│   └── design.pdf     ← same guide, PDF
+│   ├── design.pdf     ← same guide, PDF
+│   └── v1/            bring-up procedure, characterization template, spec errata
 └── v1/                ← first implementation
     ├── firmware/      portable C core, STM32G474 target drivers, bring-up app, host tests
     ├── hardware/      board.yaml, executable design rules, BOM notes
-    ├── tools/         characterization: noise floor, accuracy, PD matrix, power, CAN timing
-    └── docs/          bring-up procedure, characterization template, spec errata
+    └── tools/         characterization: noise floor, accuracy, PD matrix, power, CAN timing
 ```
 
 Each `vN/` directory is a self-contained iteration. Start with

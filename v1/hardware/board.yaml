@@ -238,7 +238,7 @@ afe:
     power_w: 1
     post_regulated: true    # section 8.3: LDO after the converter, always
   # Section 8.4.  Written down as a target so the measured number in
-  # docs/characterization.md has something to be compared against.
+  # 1—Documentation/v1/characterization.md has something to be compared against.
   expected_noise_free_bits:
     bench_power: 19.0
     isolated_dcdc: 17.5
