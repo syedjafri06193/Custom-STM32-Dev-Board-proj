@@ -4,7 +4,7 @@
  * vendor dependency and every register touched is one somebody chose to touch.
  * Only the peripherals this board actually uses appear here.  Offsets and bit
  * positions are from RM0440 (STM32G4 reference manual); anything uncertain is
- * called out in docs/notes-on-the-spec.md rather than guessed at silently.
+ * called out in 1—Documentation/v1/notes-on-the-spec.md rather than guessed at silently.
  */
 
 #ifndef STM32G474_H

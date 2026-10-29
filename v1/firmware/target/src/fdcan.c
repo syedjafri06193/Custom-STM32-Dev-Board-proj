@@ -17,7 +17,7 @@
  * Each instance owns a 0x350-byte block, laid out as below.  This is the one
  * table in this file that cannot be derived from anything else and must be
  * checked against RM0440 for the exact part before first silicon; it is
- * called out in docs/notes-on-the-spec.md for that reason.
+ * called out in 1—Documentation/v1/notes-on-the-spec.md for that reason.
  *
  *   offset  size    contents
  *   0x0000  0x0070  28 standard filters, 1 word each

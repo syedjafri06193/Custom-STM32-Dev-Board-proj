@@ -7,11 +7,13 @@
 #
 #   make            build and run every suite
 #   make test       the same
+#   make sanitize   the same, under AddressSanitizer + UBSan
 #   make clean
 
 CC      ?= cc
-CFLAGS  := -std=c11 -Wall -Wextra -Werror -O1 -g -Icore/inc -Itests
-BUILD   := build
+EXTRA_CFLAGS ?=
+CFLAGS  := -std=c11 -Wall -Wextra -Werror -O1 -g -Icore/inc -Itests $(EXTRA_CFLAGS)
+BUILD   ?= build
 
 CORE := \
 	core/src/pd_policy.c \
@@ -24,7 +26,7 @@ SUITES := pd_policy can_timing ads1220 afe_vbus
 
 BINS := $(addprefix $(BUILD)/test_,$(SUITES))
 
-.PHONY: all test clean
+.PHONY: all test sanitize clean
 
 all: test
 
@@ -43,5 +45,11 @@ test: $(BINS)
 	if [ $$fail -ne 0 ]; then echo "FAILED"; exit 1; fi; \
 	echo "all suites passed"
 
+# Undefined behaviour in fixed-point scaling code tends to "work" on the host
+# and misbehave on the target; the sanitizers make it fail here instead.
+sanitize:
+	@$(MAKE) --no-print-directory test BUILD=build-san \
+		EXTRA_CFLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all"
+
 clean:
-	@rm -rf $(BUILD)
+	@rm -rf $(BUILD) build-san

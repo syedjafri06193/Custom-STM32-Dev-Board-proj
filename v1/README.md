@@ -2,7 +2,7 @@
 
 A 4-layer board with USB-C Power Delivery, CAN FD, and an isolated 24-bit
 analog front end for 4–20 mA industrial sensors — implemented from
-[`docs/design.md`](../docs/design.md).
+[`../1—Documentation/design.md`](../1—Documentation/design.md).
 
 > **Functional isolation only. NOT rated for mains-referenced sensors.**
 > The barrier power jumper defeats isolation and is for bench use only.
@@ -81,7 +81,7 @@ combinations of clock, bit rate and sample point.
 **It found two real bugs.** A sample-point tie band wide enough to return
 82.7% when asked for 87.5%, and a search that only ever rounded the
 time-quanta count down. Details in
-[`docs/notes-on-the-spec.md`](docs/notes-on-the-spec.md).
+[`../1—Documentation/v1/notes-on-the-spec.md`](../1—Documentation/v1/notes-on-the-spec.md).
 
 ## What the board actually runs at
 
